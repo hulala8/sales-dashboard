@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>业务监控交互式数据看板 v2 - 单文件离线版</title>
+    <!-- 引入外部现代字体 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- 引入 ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <!-- 引入 SheetJS 处理 Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    
+    <style>
+:root {
+    /* 深色炫酷风增强版本 */
+    --bg-color: #050b14;
+    --panel-bg: rgba(15, 23, 42, 0.65);
+    --panel-border: rgba(56, 189, 248, 0.2);
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --primary-color: #38bdf8;
+    --primary-glow: #818cf8;
+    --success-color: #10b981;
+    --danger-color: #ef4444;
+    --hover-bg: rgba(56, 189, 248, 0.1);
+    --shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    --glow: inset 0 0 20px rgba(56, 189, 248, 0.05);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    background-image: 
+        radial-gradient(circle at 15% 50%, rgba(56, 189, 248, 0.06) 0%, transparent 40%),
+        radial-gradient(circle at 85% 30%, rgba(129, 140, 248, 0.06) 0%, transparent 40%);
+}
+
+.dashboard-wrapper {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* 顶部通栏 */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--panel-border);
+}
+.header h1 {
+    font-size: 1.8rem;
+    background: linear-gradient(to right, var(--primary-color), var(--primary-glow));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.upload-btn {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-glow));
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* 面板通用样式 */
+.panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 20px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: var(--shadow), var(--glow);
+}
+.panel-header {
+    margin-bottom: 15px;
+    padding-left: 10px;
+    border-left: 4px solid var(--primary-color);
+}
+.panel-header h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+.custom-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-left: none;
+    padding-left: 0;
+}
+
+/* 第 1 层: 过滤器 */
+.filters-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 20px;
+    padding: 15px 20px;
+    z-index: 100; /* 防止下拉框被下方的图表或面板遮挡 */
+    position: relative;
+}
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.filter-group label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+/* 自定义多选下拉框 */
+.custom-select-wrapper {
+    position: relative;
+    user-select: none;
+}
+.custom-select {
+    position: relative;
+    min-width: 160px;
+}
+.select-trigger {
+    background: rgba(0, 0, 0, 0.3);
+    color: #fff;
+    border: 1px solid var(--panel-border);
+    padding: 6px 30px 6px 12px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: border-color 0.2s;
+}
+.select-trigger::after {
+    content: '▼';
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+.custom-select.open .select-trigger {
+    border-color: var(--primary-color);
+}
+.select-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    background: #0f172a;
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 100;
+    display: none;
+    box-shadow: var(--shadow);
+}
+.custom-select.open .select-options {
+    display: block;
+}
+.option-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.2s;
+}
+.option-item:hover {
+    background: var(--hover-bg);
+}
+.option-item input[type="checkbox"] {
+    accent-color: var(--primary-color);
+    cursor: pointer;
+}
+.filter-divider {
+    width: 1px;
+    height: 30px;
+    background: var(--panel-border);
+    margin: 0 10px;
+}
+.toggle-group {
+    display: flex;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--panel-border);
+}
+.toggle-btn {
+    background: transparent;
+    color: var(--text-secondary);
+    border: none;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.toggle-btn.active {
+    background: var(--primary-color);
+    color: #000;
+    font-weight: 600;
+}
+
+/* 第 2 层: KPI */
+.kpi-container {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 15px;
+}
+.kpi-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 20px 15px;
+    text-align: center;
+    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow);
+}
+.kpi-title {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+.kpi-value {
+    font-size: 1.8rem;
+    font-weight: 800;
+}
+.text-gradient {
+    background: linear-gradient(to right, #ffffff, #94a3b8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.text-success { color: var(--success-color); }
+.text-danger { color: var(--danger-color); }
+
+/* 第 3&5 层: 表格 (Tree Table) */
+.table-container {
+    width: 100%;
+    overflow-x: auto;
+    max-height: 500px;
+    overflow-y: auto;
+}
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+.data-table th {
+    position: sticky;
+    top: 0;
+    background: #0f172a;
+    color: var(--text-secondary);
+    font-weight: 600;
+    padding: 12px 10px;
+    border-bottom: 1px solid var(--panel-border);
+    z-index: 10;
+}
+.data-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+.data-table th.sortable:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.05);
+}
+.sort-icon {
+    font-size: 0.75rem;
+    margin-left: 4px;
+    color: var(--panel-border);
+}
+.sort-icon.active {
+    color: var(--primary-color);
+}
+.data-table td {
+    padding: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.data-table tbody tr {
+    transition: background 0.2s;
+    background: transparent;
+}
+.data-table tbody tr:hover {
+    background: var(--hover-bg);
+}
+.col-num { text-align: right; }
+.col-name { text-align: left; }
+
+/* 树形层级缩进和折叠图标 */
+.tree-level-1 td:first-child { padding-left: 10px; font-weight: 600; color: #fff;}
+.tree-level-2 td:first-child { padding-left: 30px; color: #cbd5e1;}
+.tree-level-3 td:first-child { padding-left: 50px; color: #94a3b8;}
+.tree-level-4 td:first-child { padding-left: 70px; color: #64748b;}
+
+.tree-toggle {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    line-height: 16px;
+    text-align: center;
+    border: 1px solid var(--primary-color);
+    border-radius: 3px;
+    color: var(--primary-color);
+    margin-right: 8px;
+    cursor: pointer;
+    font-family: monospace;
+    user-select: none;
+}
+/* 隐藏行的类 */
+.hidden-row { display: none !important; }
+
+/* 第 4 层: 产品卡片 */
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+}
+.prod-card {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 15px;
+}
+.prod-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    border-bottom: 1px dashed rgba(255,255,255,0.1);
+    padding-bottom: 8px;
+}
+.prod-price {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: normal;
+}
+.metric-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 0.95rem;
+}
+.metric-row .label { color: var(--text-secondary); }
+.metric-row .val { font-weight: 600; }
+
+/* 小红绿挂件工具类 */
+.indicator {
+    font-size: 0.8rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 5px;
+}
+.bg-success { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+.bg-danger { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+/* ===== 响应式布局 (移动端) ===== */
+@media (max-width: 900px) {
+    .dashboard-wrapper { padding: 12px; gap: 12px; }
+    .header h1 { font-size: 1.3rem; }
+    .upload-btn { font-size: 0.8rem; padding: 6px 10px; }
+    .kpi-container { grid-template-columns: repeat(3, 1fr); }
+    .product-grid { grid-template-columns: repeat(2, 1fr); }
+    .filters-container { flex-direction: column; align-items: flex-start; gap: 12px; padding: 12px; }
+    .filter-group { width: 100%; }
+    .custom-select { min-width: 100%; width: 100%; }
+    .filter-divider { display: none; }
+    .toggle-group { width: 100%; }
+    .toggle-btn { flex: 1; text-align: center; }
+    .data-table { font-size: 0.78rem; }
+    .data-table td, .data-table th { padding: 8px 5px; }
+}
+@media (max-width: 600px) {
+    .kpi-container { grid-template-columns: repeat(2, 1fr); }
+    .product-grid { grid-template-columns: 1fr 1fr; }
+    .kpi-value { font-size: 1.3rem; }
+    .panel { padding: 14px; }
+    .header h1 { font-size: 1.1rem; }
+    .panel-header h2 { font-size: 0.95rem; }
+    .data-table { font-size: 0.72rem; }
+    .table-container { max-height: 380px; }
+}
+@media (max-width: 400px) {
+    .kpi-container { grid-template-columns: 1fr 1fr; }
+    .product-grid { grid-template-columns: 1fr; }
+}
+    </style>
+</head>
+<body>
+    <div class="dashboard-wrapper">
+        <!-- 顶部通栏 -->
+        <header class="header">
+            <h1>业务监控分析系统</h1>
+            <div class="header-controls">
+                <label class="upload-btn" id="upload-label" style="position:relative;overflow:hidden;display:inline-block;">
+                    <span id="upload-label-text">导入数据源 (.xlsx)</span>
+                    <input type="file" id="excel-upload"
+                        accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                        style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;"
+                    />
+                </label>
+            </div>
+        </header>
+
+        <!-- 第 1 层：全局维度控制器 (Global Filters) -->
+        <div class="filters-container panel">
+            <div class="filter-group custom-select-wrapper">
+                <label>选择月份</label>
+                <div class="custom-select" id="wrapper-month">
+                    <div class="select-trigger" id="trigger-month">全部月份 (多选)</div>
+                    <div class="select-options" id="options-month"></div>
+                </div>
+            </div>
+            <div class="filter-group custom-select-wrapper">
+                <label>选择省区</label>
+                <div class="custom-select" id="wrapper-province">
+                    <div class="select-trigger" id="trigger-province">全部省区 (多选)</div>
+                    <div class="select-options" id="options-province"></div>
+                </div>
+            </div>
+            <div class="filter-group custom-select-wrapper">
+                <label>产品大类</label>
+                <div class="custom-select" id="wrapper-category">
+                    <div class="select-trigger" id="trigger-category">全部大类 (多选)</div>
+                    <div class="select-options" id="options-category"></div>
+                </div>
+            </div>
+            <div class="filter-group custom-select-wrapper">
+                <label>产品名称</label>
+                <div class="custom-select" id="wrapper-product">
+                    <div class="select-trigger" id="trigger-product">全部产品 (多选)</div>
+                    <div class="select-options" id="options-product"></div>
+                </div>
+            </div>
+            
+            <div class="filter-divider"></div>
+            
+            <div class="filter-group">
+                <label>环比计算口径</label>
+                <div class="toggle-group" id="mom-toggle">
+                    <button class="toggle-btn active" data-val="A">当月比上月 (A)</button>
+                    <button class="toggle-btn" data-val="B">单月比前3月均值 (B)</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第 2 层：全局数据总览 (Global KPIs) -->
+        <div class="kpi-container">
+            <div class="kpi-card">
+                <div class="kpi-title">指标金额 (元)</div>
+                <div class="kpi-value text-gradient" id="global-target">0</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">进货金额 (元)</div>
+                <div class="kpi-value text-gradient" id="global-purchase">0</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">达成率</div>
+                <div class="kpi-value text-gradient" id="global-achieve">0%</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">同比增长率</div>
+                <div class="kpi-value" id="global-yoy">0%</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">环比增长率</div>
+                <div class="kpi-value" id="global-mom">0%</div>
+            </div>
+        </div>
+
+        <!-- 第 3 层：层级下钻菜单 1 (进货视角：省区 -> 办事处 -> 医院) -->
+        <div class="table-panel panel">
+            <div class="panel-header">
+                <h2>进货视角下钻分析 (省区 → 办事处 → 医院)</h2>
+            </div>
+            <div class="table-container">
+                <table class="data-table" id="table-purchase">
+                    <thead>
+                        <tr>
+                            <th class="col-name">层级名称</th>
+                            <th class="col-num sortable" data-sort="target">指标金额 <span class="sort-icon"></span></th>
+                            <th class="col-num sortable" data-sort="purchase">进货金额 <span class="sort-icon desc active">▼</span></th>
+                            <th class="col-num sortable" data-sort="achieve">达成率 <span class="sort-icon"></span></th>
+                            <th class="col-num sortable" data-sort="ratio">进货占比 <span class="sort-icon"></span></th>
+                            <th class="col-num sortable" data-sort="yoy">同比 <span class="sort-icon"></span></th>
+                            <th class="col-num sortable" data-sort="mom">环比 <span class="sort-icon"></span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-purchase">
+                        <!-- 动态渲染的树形行 -->
+                        <tr><td colspan="7" class="text-center" style="padding: 20px; color: var(--text-secondary);">请先导入 Excel 数据</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 第 4 层：四大特定产品纯销及达成情况 -->
+        <div class="product-cards-panel panel">
+            <div class="panel-header custom-flex">
+                <h2>核心四大产品纯销数据总览</h2>
+                <div class="toggle-group" id="unit-toggle">
+                    <button class="toggle-btn active" data-val="amount">金额 (元)</button>
+                    <button class="toggle-btn" data-val="box">最小包装数</button>
+                </div>
+            </div>
+            <div class="product-grid">
+                <!-- 艾心安 -->
+                <div class="prod-card">
+                    <div class="prod-name">艾心安<span class="prod-price">¥486.82/盒</span></div>
+                    <div class="prod-metrics">
+                        <div class="metric-row">
+                            <span class="label">纯销:</span>
+                            <span class="val text-gradient" id="prod-aixinan-val">0</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="label">达成:</span>
+                            <span class="val" id="prod-aixinan-achieve">0%</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- 安达静 -->
+                <div class="prod-card">
+                    <div class="prod-name">安达静<span class="prod-price">¥670.96/盒</span></div>
+                    <div class="prod-metrics">
+                        <div class="metric-row">
+                            <span class="label">纯销:</span>
+                            <span class="val text-gradient" id="prod-andajing-val">0</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="label">达成:</span>
+                            <span class="val" id="prod-andajing-achieve">0%</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- 艾速达 -->
+                <div class="prod-card">
+                    <div class="prod-name">艾速达<span class="prod-price">¥1771.81/盒</span></div>
+                    <div class="prod-metrics">
+                        <div class="metric-row">
+                            <span class="label">纯销:</span>
+                            <span class="val text-gradient" id="prod-aisuda-val">0</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="label">达成:</span>
+                            <span class="val" id="prod-aisuda-achieve">0%</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- 恒沁 -->
+                <div class="prod-card">
+                    <div class="prod-name">恒沁<span class="prod-price">¥177.87/盒</span></div>
+                    <div class="prod-metrics">
+                        <div class="metric-row">
+                            <span class="label">纯销:</span>
+                            <span class="val text-gradient" id="prod-hengqin-val">0</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="label">达成:</span>
+                            <span class="val" id="prod-hengqin-achieve">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第 5 层：层级下钻菜单 2 (纯销视角：产品 -> 省区 -> 办事处 -> 医院) -->
+        <div class="table-panel panel">
+            <div class="panel-header">
+                <h2>纯销视角四大核心产品下钻分析 (产品 → 省区 → 办事处 → 医院)</h2>
+            </div>
+            <div class="table-container">
+                <table class="data-table" id="table-sales">
+                    <thead>
+                        <tr>
+                            <th class="col-name">层级名称</th>
+                            <th class="col-num sortable" data-sort="target">指标金额 <span class="sort-icon"></span></th>
+                            <th class="col-num sortable" data-sort="pureSales">纯销金额 <span class="sort-icon desc active">▼</span></th>
+                            <th class="col-num sortable" data-sort="pureAchieve">纯销达成率 <span class="sort-icon"></span></th>
+                            <th class="col-num sortable" data-sort="ratio">纯销占比 <span class="sort-icon"></span></th>
+                            <th class="col-num sortable" data-sort="mom">环比 <span class="sort-icon"></span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-sales">
+                        <!-- 动态渲染的树形行 -->
+                        <tr><td colspan="6" class="text-center" style="padding: 20px; color: var(--text-secondary);">请先导入 Excel 数据</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+    
+    <script>
+// ===== 1. 状态与配置管理 =====
+
+const AppState = {
+    rawData: [],      // 原始打平数据
+    filters: {
+        month: [],
+        province: [],
+        category: [],
+        product: []
+    },
+    momType: 'A',     // A: 当月比上月, B: 单月比前3月平均
+    unit: 'amount',   // amount: 金额, box: 包装数
+    sort: {
+        table1: { field: 'purchase', order: 'desc' },
+        table2: { field: 'pureSales', order: 'desc' }
+    }
+};
+
+// 预定义单价 (单位: 元/盒)
+const ProductPrices = {
+    '安达静': 670.96,
+    '艾速达': 1771.81,
+    '恒沁': 177.87,
+    '艾心安': 486.82
+};
+
+
+// ===== 2. 通用工具函数 =====
+
+const formatNumber = (num, decimals = 0) => Number(num.toFixed(decimals)).toLocaleString('zh-CN');
+
+const convertUnit = (val, prodName) => {
+    if (AppState.unit === 'amount') return val;
+    const price = ProductPrices[prodName] || 1;
+    return val / price;
+};
+
+const formatMoneyOrBox = (val, prodName) => {
+    const converted = convertUnit(val, prodName);
+    return formatNumber(converted, AppState.unit === 'box' ? 0 : 2);
+};
+
+const safeDiv = (num, den) => den === 0 ? 0 : num / den;
+
+const formatPercent = (rate) => {
+    if (rate === 0) return '0%';
+    const sign = rate > 0 ? '+' : '';
+    return `${sign}${(rate * 100).toFixed(1)}%`;
+};
+
+const formatRatio = (rate) => {
+    if (rate === 0) return '0%';
+    return `${(rate * 100).toFixed(1)}%`;
+};
+
+const colorizeAchievement = (rate) => {
+    const text = `${(rate * 100).toFixed(1)}%`;
+    const cls = rate >= 1 ? 'text-success' : 'text-danger';
+    return `<span class="${cls}">${text}</span>`;
+};
+
+const colorizeGrowth = (rate) => {
+    if (rate === 0) return '0%';
+    const text = formatPercent(rate);
+    const cls = rate > 0 ? 'text-success' : rate < 0 ? 'text-danger' : '';
+    return `<span class="${cls}">${text}</span>`;
+};
+
+
+// ===== 3. 数据处理引擎 =====
+
+// 获取月份的逻辑索引 (1-12 代表 2026年1-12月)
+const getMonthIdx = (mStr) => {
+    const num = parseInt((mStr+'').replace(/\D/g, '')) || 0;
+    return num;
+};
+
+// 获取特定月份、特定年份、特定字段的聚合值
+function getHistoricalVal(rows, targetMonthIdx, year, field) {
+    const mIdx = ((targetMonthIdx - 1) % 12 + 12) % 12 + 1;
+    const monthRows = rows.filter(r => getMonthIdx(r['月份']) === mIdx);
+    if (monthRows.length === 0) return 0;
+
+    const suffix = field === 'purchase' ? '进货值' : '纯销值';
+    const shortYear = (year + '').slice(-2); // '25' or '26'
+    
+    let sum = 0;
+    monthRows.forEach(row => {
+        const keys = Object.keys(row);
+        // 优先完全匹配
+        let key = keys.find(k => k === `${year}年${suffix}` || k === `${shortYear}年${suffix}`);
+        if (!key) {
+            // 模糊匹配：年份(2025或25) + 进货/纯销
+            key = keys.find(k => (k.includes(year) || k.includes(shortYear)) && k.includes(suffix));
+        }
+        if (key) sum += (Number(row[key]) || 0);
+    });
+    return sum;
+}
+
+// 过滤除月份外的其它维度 (以便溯源历史)
+function getFilteredDataExcludingMonth() {
+    return AppState.rawData.filter(row => {
+        const { filters } = AppState;
+        if (filters.province.length > 0 && !filters.province.includes(row['所在省区'])) return false;
+        if (filters.category.length > 0 && !filters.category.includes(row['产品大类'])) return false;
+        if (filters.product.length > 0 && !filters.product.includes(row['产品名称'])) return false;
+        return true;
+    });
+}
+
+// 核心聚合函数 (计算各项指标及滚动环比)
+function aggregateMetrics(allRowsNode, selectedMonths) {
+    let target = 0, purchase26 = 0, sales25 = 0, pureSales26 = 0;
+    const currentRows = (selectedMonths && selectedMonths.length > 0) ? allRowsNode.filter(r => selectedMonths.includes(r['月份'])) : allRowsNode;
+    
+    currentRows.forEach(r => {
+        target += Number(r['2026年指标值']) || 0;
+        purchase26 += Number(r['2026年进货值']) || 0;
+        pureSales26 += Number(r['2026年纯销值']) || 0;
+        
+        const keys = Object.keys(r);
+        const y25Key = keys.find(k => (k.includes('2025') || k.includes('25')) && k.includes('进货'));
+        sales25 += (y25Key ? Number(r[y25Key]) : 0) || 0;
+    });
+
+    const achieve = safeDiv(purchase26, target);
+    const pureAchieve = safeDiv(pureSales26, target);
+    const yoy = safeDiv(purchase26 - sales25, sales25);
+    
+    let mom = 0;
+    if (selectedMonths && selectedMonths.length > 0) {
+        const sortedIndices = selectedMonths.map(getMonthIdx).sort((a, b) => a - b);
+        const startIdx = sortedIndices[0];
+        const currentAvg = purchase26 / selectedMonths.length;
+        
+        let histSum = 0, count = 0;
+        if (AppState.momType === 'A') {
+            const hIdx = startIdx - 1;
+            histSum = getHistoricalVal(allRowsNode, hIdx, hIdx >= 1 ? '2026' : '2025', 'purchase');
+            count = 1;
+        } else {
+            for (let i = 1; i <= 3; i++) {
+                const hIdx = startIdx - i;
+                histSum += getHistoricalVal(allRowsNode, hIdx, hIdx >= 1 ? '2026' : '2025', 'purchase');
+            }
+            count = 3;
+        }
+        const histAvg = histSum / count;
+        mom = safeDiv(currentAvg - histAvg, histAvg);
+    }
+    return { target, purchase: purchase26, sales25, pureSales: pureSales26, achieve, pureAchieve, yoy, mom };
+}
+
+
+// ===== 4. 视图渲染逻辑 =====
+
+function renderAll() {
+    const allData = getFilteredDataExcludingMonth();
+    const gm = aggregateMetrics(allData, AppState.filters.month);
+
+    document.getElementById('global-target').textContent = formatNumber(gm.target);
+    document.getElementById('global-purchase').textContent = formatNumber(gm.purchase);
+    document.getElementById('global-achieve').innerHTML = colorizeAchievement(gm.achieve);
+    document.getElementById('global-yoy').innerHTML = colorizeGrowth(gm.yoy);
+    document.getElementById('global-mom').innerHTML = colorizeGrowth(gm.mom);
+
+    ['艾心安', '安达静', '艾速达', '恒沁'].forEach(pName => {
+        const pRows = allData.filter(r => r['产品名称'] === pName);
+        const pm = aggregateMetrics(pRows, AppState.filters.month);
+        const key = pName === '艾心安' ? 'aixinan' : pName === '安达静' ? 'andajing' : pName === '艾速达' ? 'aisuda' : 'hengqin';
+        const valEl = document.getElementById(`prod-${key}-val`);
+        const achEl = document.getElementById(`prod-${key}-achieve`);
+        if (valEl && achEl) {
+            valEl.textContent = formatMoneyOrBox(pm.pureSales, pName);
+            achEl.innerHTML = pm.pureSales > 0 ? colorizeAchievement(pm.pureAchieve) : '0%';
+        }
+    });
+
+    renderTreeTable('tbody-purchase', allData, ['所在省区', '所在办事处', '医院名称'], gm, AppState.sort.table1, (nm, name, rm) => {
+        const ratio = safeDiv(nm.purchase, rm.purchase);
+        return `
+            <td class="col-num">${formatNumber(nm.target)}</td>
+            <td class="col-num">${formatNumber(nm.purchase)}</td>
+            <td class="col-num">${colorizeAchievement(nm.achieve)}</td>
+            <td class="col-num">${formatRatio(ratio)}</td>
+            <td class="col-num">${colorizeGrowth(nm.yoy)}</td>
+            <td class="col-num">${colorizeGrowth(nm.mom)}</td>
+        `;
+    });
+
+    const coreP = ['艾心安', '安达静', '艾速达', '恒沁'];
+    const sRows = allData.filter(r => coreP.includes(r['产品名称']));
+    const sgm = aggregateMetrics(sRows, AppState.filters.month);
+    renderTreeTable('tbody-sales', sRows, ['产品名称', '所在省区', '所在办事处', '医院名称'], sgm, AppState.sort.table2, (nm, name, rm) => {
+        const pN = coreP.includes(name) ? name : '未知'; 
+        const ratio = safeDiv(nm.pureSales, rm.pureSales);
+        return `
+            <td class="col-num">${formatNumber(nm.target)}</td>
+            <td class="col-num text-gradient">${formatMoneyOrBox(nm.pureSales, pN)}</td>
+            <td class="col-num">${colorizeAchievement(nm.pureAchieve)}</td>
+            <td class="col-num">${formatRatio(ratio)}</td>
+            <td class="col-num">${colorizeGrowth(nm.mom)}</td>
+        `;
+    }, (a, b) => {
+        if (coreP.includes(a.name) && coreP.includes(b.name)) return coreP.indexOf(a.name) - coreP.indexOf(b.name);
+        const f = AppState.sort.table2.field;
+        const o = AppState.sort.table2.order === 'desc' ? -1 : 1;
+        return (a.metrics[f] - b.metrics[f]) * o;
+    });
+}
+
+function renderTreeTable(tbodyId, dataList, dimensions, rootMetrics, sortState, renderCols, customSort) {
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody || dataList.length === 0) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--text-secondary);">暂无数据</td></tr>`;
+        return;
+    }
+
+    function buildTree(list, dimIndex) {
+        if (dimIndex >= dimensions.length) return null;
+        const currentDim = dimensions[dimIndex];
+        const groups = {};
+        list.forEach(row => {
+            const key = row[currentDim] || '未知';
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(row);
+        });
+        const nodes = [];
+        for (const [key, rows] of Object.entries(groups)) {
+            nodes.push({
+                name: key,
+                metrics: aggregateMetrics(rows, AppState.filters.month),
+                children: buildTree(rows, dimIndex + 1)
+            });
+        }
+        if (customSort) nodes.sort(customSort);
+        else {
+            const f = sortState.field, o = sortState.order === 'desc' ? -1 : 1;
+            nodes.sort((a, b) => {
+                let vA = a.metrics[f], vB = b.metrics[f];
+                if (f === 'ratio') {
+                    if (tbodyId === 'tbody-purchase') { vA = a.metrics.purchase; vB = b.metrics.purchase; }
+                    else { vA = a.metrics.pureSales; vB = b.metrics.pureSales; }
+                }
+                return (vA - vB) * o;
+            });
+        }
+        return nodes;
+    }
+
+    const treeData = buildTree(dataList, 0);
+    let html = '', rowIdx = 0;
+    function genHtml(nodes, level, pId) {
+        nodes.forEach(n => {
+            const curId = `row-${tbodyId}-${rowIdx++}`;
+            const hasC = n.children && n.children.length > 0;
+            const icon = hasC ? `<span class="tree-toggle" data-id="${curId}" data-target-class="child-of-${curId}">+</span>` : '<span style="display:inline-block;width:26px;"></span>';
+            html += `<tr id="${curId}" class="tree-level-${level} ${level > 1 ? 'hidden-row child-of-' + pId : ''}" data-level="${level}">
+                <td class="col-name">${icon}${n.name}</td>${renderCols(n.metrics, n.name, rootMetrics)}</tr>`;
+            if (hasC) genHtml(n.children, level + 1, curId);
+        });
+    }
+    genHtml(treeData, 1, 'root');
+    tbody.innerHTML = html;
+    tbody.querySelectorAll('.tree-toggle').forEach(b => {
+        b.onclick = (e) => {
+            const tC = e.target.getAttribute('data-target-class');
+            if (e.target.textContent === '+') {
+                e.target.textContent = '-';
+                tbody.querySelectorAll(`.${tC}`).forEach(r => r.classList.remove('hidden-row'));
+            } else {
+                e.target.textContent = '+';
+                const hideSub = (cls) => {
+                    tbody.querySelectorAll(`.${cls}`).forEach(r => {
+                        r.classList.add('hidden-row');
+                        const btn = r.querySelector('.tree-toggle');
+                        if (btn) { btn.textContent = '+'; hideSub(`child-of-${r.id}`); }
+                    });
+                };
+                hideSub(tC);
+            }
+        };
+    });
+}
+
+
+// ===== 5. 过滤器初始化 =====
+
+function initFilters(data) {
+    const s = { month: new Set(), province: new Set(), category: new Set(), product: new Set() };
+    data.forEach(r => {
+        if (r['月份']) s.month.add(r['月份']);
+        if (r['所在省区']) s.province.add(r['所在省区']);
+        if (r['产品大类']) s.category.add(r['产品大类']);
+        if (r['产品名称']) s.product.add(r['产品名称']);
+    });
+
+    const initMulti = (id, set, label) => {
+        const w = document.getElementById(`wrapper-${id}`), t = document.getElementById(`trigger-${id}`), o = document.getElementById(`options-${id}`);
+        if (!w || !t || !o) return;
+        t.onclick = (e) => {
+            e.stopPropagation();
+            document.querySelectorAll('.custom-select.open').forEach(el => { if (el !== w) el.classList.remove('open'); });
+            w.classList.toggle('open');
+        };
+        let h = `<label class="option-item" style="border-bottom:1px dashed rgba(255,255,255,0.2);padding-bottom:10px;margin-bottom:5px;">
+            <input type="checkbox" class="chk-all-${id}"><span style="font-weight:700;">全选</span></label>`;
+        let vals = Array.from(set);
+        if (id === 'month') {
+            vals.sort((a, b) => {
+                const m1 = a.match(/\d+/g) || [], m2 = b.match(/\d+/g) || [];
+                if (m1[0] !== m2[0]) return parseInt(m1[0]) - parseInt(m2[0]);
+                return parseInt(m1[1]) - parseInt(m2[1]);
+            });
+        } else vals.sort();
+        vals.forEach(v => h += `<label class="option-item"><input type="checkbox" value="${v}" class="chk-${id}"> ${v}</label>`);
+        o.innerHTML = h;
+        const all = o.querySelector(`.chk-all-${id}`), chks = Array.from(o.querySelectorAll(`.chk-${id}`));
+        const up = () => {
+            const sel = chks.filter(c => c.checked).map(c => c.value);
+            AppState.filters[id] = sel;
+            if (sel.length === 0) { t.textContent = `全部${label} (多选)`; all.checked = false; }
+            else if (sel.length === chks.length) { t.textContent = `全部${label}`; all.checked = true; }
+            else if (sel.length === 1) { t.textContent = sel[0]; all.checked = false; }
+            else { t.textContent = `已选 ${sel.length} 项`; all.checked = false; }
+            renderAll();
+        };
+        all.onchange = (e) => { chks.forEach(c => c.checked = e.target.checked); up(); };
+        chks.forEach(c => c.onchange = () => { all.checked = chks.every(cb => cb.checked); up(); });
+    };
+    initMulti('month', s.month, '月份');
+    initMulti('province', s.province, '省区');
+    initMulti('category', s.category, '大类');
+    initMulti('product', s.product, '产品');
+    document.onclick = (e) => { if (!e.target.closest('.custom-select')) document.querySelectorAll('.custom-select.open').forEach(el => el.classList.remove('open')); };
+}
+
+function bindControls() {
+    document.querySelectorAll('#mom-toggle .toggle-btn').forEach(b => {
+        b.onclick = (e) => {
+            document.querySelectorAll('#mom-toggle .toggle-btn').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active'); AppState.momType = e.target.getAttribute('data-val'); renderAll();
+        };
+    });
+    document.querySelectorAll('#unit-toggle .toggle-btn').forEach(b => {
+        b.onclick = (e) => {
+            document.querySelectorAll('#unit-toggle .toggle-btn').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active'); AppState.unit = e.target.getAttribute('data-val'); renderAll();
+        };
+    });
+    document.querySelectorAll('.data-table th.sortable').forEach(th => {
+        th.onclick = (e) => {
+            const el = e.target.closest('th'), tid = el.closest('table').id;
+            const sk = tid === 'table-purchase' ? 'table1' : 'table2', f = el.getAttribute('data-sort');
+            if (AppState.sort[sk].field === f) AppState.sort[sk].order = AppState.sort[sk].order === 'desc' ? 'asc' : 'desc';
+            else { AppState.sort[sk].field = f; AppState.sort[sk].order = 'desc'; }
+            const head = el.closest('thead');
+            head.querySelectorAll('.sort-icon').forEach(i => { i.classList.remove('active', 'desc', 'asc'); i.textContent = ''; });
+            const icon = el.querySelector('.sort-icon');
+            if (icon) { icon.classList.add('active', AppState.sort[sk].order); icon.textContent = AppState.sort[sk].order === 'desc' ? '▼' : '▲'; }
+            renderAll();
+        };
+    });
+}
+
+function handleExcelUpload(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    
+    const labelEl = document.getElementById('upload-label-text');
+    
+    // iOS: 检查 SheetJS 是否已加载
+    if (typeof XLSX === 'undefined') {
+        alert('数据解析库尚未加载完成，请检查网络连接后刷新页面重试。');
+        return;
+    }
+    
+    labelEl.textContent = '解析中...';
+    
+    const reader = new FileReader();
+    
+    reader.onerror = function() {
+        alert('文件读取失败，请确认文件未被损坏，并重试。');
+        labelEl.textContent = '导入失败，请重试';
+        event.target.value = '';
+    };
+    
+    reader.onload = function(e) {
+        try {
+            const arrayBuf = e.target.result;
+            const data = new Uint8Array(arrayBuf);
+            if (data.length === 0) {
+                alert('文件内容为空，请检查文件是否正确。');
+                labelEl.textContent = '导入失败，请重试';
+                return;
+            }
+            const workbook = XLSX.read(data, { type: 'array' });
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rawRows = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+            if (!rawRows || rawRows.length === 0) {
+                alert('Excel 文件中未读取到数据，请检查第一个工作表是否有内容。');
+                labelEl.textContent = '导入失败，请重试';
+                return;
+            }
+            AppState.rawData = rawRows.map(row => {
+                const cleaned = {};
+                Object.keys(row).forEach(k => {
+                    const normalizedKey = k.trim().replace(/\u00a0/g, '').replace(/\s+/g, '');
+                    cleaned[normalizedKey] = row[k];
+                });
+                return cleaned;
+            });
+            initFilters(AppState.rawData);
+            renderAll();
+            labelEl.textContent = '导入成功，可重新导入';
+        } catch (err) {
+            console.error('Excel parse error:', err);
+            alert('解析 Excel 文件失败：' + err.message + '\n请确保文件为标准 .xlsx 格式。');
+            labelEl.textContent = '导入失败，请重试';
+            event.target.value = '';
+        }
+    };
+    
+    reader.readAsArrayBuffer(file);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    bindControls();
+    const uploadInput = document.getElementById('excel-upload');
+    if (uploadInput) {
+        // iOS 有时只触发 input 事件而不是 change，两个都绑定确保兼容
+        uploadInput.addEventListener('change', handleExcelUpload);
+        uploadInput.addEventListener('input', handleExcelUpload);
+    }
+});
+    </script>
+</body>
+</html>

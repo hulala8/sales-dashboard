@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>业务监控交互式数据看板 v2</title>
+    <!-- 引入外部现代字体 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- 引入样式表 -->
+    <link rel="stylesheet" href="style.css">
+    <!-- 引入 ECharts (如果部分微图表还需要) -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <!-- 引入 SheetJS 处理 Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="dashboard-wrapper">
+        <!-- 顶部通栏 -->
+        <header class="header">
+            <h1>业务监控分析系统</h1>
+            <div class="header-controls">
+                <label for="excel-upload" class="upload-btn">导入数据源 (.xlsx)</label>
+                <input type="file" id="excel-upload" accept=".xlsx, .xls" style="display: none;" />
+            </div>
+        </header>
+
+        <!-- 第 1 层：全局维度控制器 (Global Filters) -->
+        <div class="filters-container panel">
+            <div class="filter-group custom-select-wrapper">
+                <label>选择月份</label>
+                <div class="custom-select" id="wrapper-month">
+                    <div class="select-trigger" id="trigger-month">全部月份 (多选)</div>
+                    <div class="select-options" id="options-month"></div>
+                </div>
+            </div>
+            <div class="filter-group custom-select-wrapper">
+                <label>选择省区</label>
+                <div class="custom-select" id="wrapper-province">
+                    <div class="select-trigger" id="trigger-province">全部省区 (多选)</div>
+                    <div class="select-options" id="options-province"></div>
+                </div>
+            </div>
+            <div class="filter-group custom-select-wrapper">
+                <label>产品大类</label>
+                <div class="custom-select" id="wrapper-category">
+                    <div class="select-trigger" id="trigger-category">全部大类 (多选)</div>
+                    <div class="select-options" id="options-category"></div>
+                </div>
+            </div>
+            <div class="filter-group custom-select-wrapper">
+                <label>产品名称</label>
+                <div class="custom-select" id="wrapper-product">
+                    <div class="select-trigger" id="trigger-product">全部产品 (多选)</div>
+                    <div class="select-options" id="options-product"></div>
+                </div>
+            </div>
+            
+            <div class="filter-divider"></div>
+            
+            <div class="filter-group">
+                <label>环比计算口径</label>
+                <div class="toggle-group" id="mom-toggle">
+                    <button class="toggle-btn active" data-val="A">当月比上月 (A)</button>
+                    <button class="toggle-btn" data-val="B">单月比前3月均值 (B)</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第 2 层：全局数据总览 (Global KPIs) -->
+        <div class="kpi-container">
+            <div class="kpi-card">
+                <div class="kpi-title">指标金额 (元)</div>
+                <div class="kpi-value text-gradient" id="global-target">0</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">进货金额 (元)</div>
+                <div class="kpi-value text-gradient" id="global-purchase">0</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">达成率</div>
+                <div class="kpi-value text-gradient" id="global-achieve">0%</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">同比增长率</div>
+                <div class="kpi-value" id="global-yoy">0%</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">环比增长率</div>
+                <div class="kpi-value" id="global-mom">0%</div>
+            </div>
+        </div>
+
+        <!-- 第 3 层：层级下钻菜单 1 (进货视角：省区 -> 办事处 -> 医院) -->
+        <div class="table-panel panel">
+            <div class="panel-header">
+                <h2>进货视角下钻分析 (省区 → 办事处 → 医院)</h2>
+            </div>
+            <div class="table-container">
+                <table class="data-table" id="table-purchase">
+                    <thead>
+                        <tr>
+                            <th class="col-name">层级名称</th>
+                            <th class="col-num sortable" data-sort="target">指标金额 <span class="sort-icon"></span></th>
+                            <th class="col-num sortable" data-sort="purchase">进货金额 <span class="sort-icon desc active">▼</span></th>
+                            <th class="col-num sortable" data-sort="achieve">达成率 <span class="sort-icon"></span></th>
+                            <th class="col-num sortable" data-sort="ratio">进货占比 <span class="sort-icon"></span></th>
+                            <th class="col-num sortable" data-sort="yoy">同比 <span class="sort-icon"></span></th>
+                            <th class="col-num sortable" data-sort="mom">环比 <span class="sort-icon"></span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-purchase">
+                        <!-- 动态渲染的树形行 -->
+                        <tr><td colspan="7" class="text-center" style="padding: 20px; color: var(--text-secondary);">请先导入 Excel 数据</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 第 4 层：四大特定产品纯销及达成情况 -->
+        <div class="product-cards-panel panel">
+            <div class="panel-header custom-flex">
+                <h2>核心四大产品纯销数据总览</h2>
+                <div class="toggle-group" id="unit-toggle">
+                    <button class="toggle-btn active" data-val="amount">金额 (元)</button>
+                    <button class="toggle-btn" data-val="box">最小包装数</button>
+                </div>
+            </div>
+            <div class="product-grid">
+                <!-- 艾心安 -->
+                <div class="prod-card">
+                    <div class="prod-name">艾心安<span class="prod-price">¥486.82/盒</span></div>
+                    <div class="prod-metrics">
+                        <div class="metric-row">
+                            <span class="label">纯销:</span>
+                            <span class="val text-gradient" id="prod-aixinan-val">0</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="label">达成:</span>
+                            <span class="val" id="prod-aixinan-achieve">0%</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- 安达静 -->
+                <div class="prod-card">
+                    <div class="prod-name">安达静<span class="prod-price">¥670.96/盒</span></div>
+                    <div class="prod-metrics">
+                        <div class="metric-row">
+                            <span class="label">纯销:</span>
+                            <span class="val text-gradient" id="prod-andajing-val">0</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="label">达成:</span>
+                            <span class="val" id="prod-andajing-achieve">0%</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- 艾速达 -->
+                <div class="prod-card">
+                    <div class="prod-name">艾速达<span class="prod-price">¥1771.81/盒</span></div>
+                    <div class="prod-metrics">
+                        <div class="metric-row">
+                            <span class="label">纯销:</span>
+                            <span class="val text-gradient" id="prod-aisuda-val">0</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="label">达成:</span>
+                            <span class="val" id="prod-aisuda-achieve">0%</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- 恒沁 -->
+                <div class="prod-card">
+                    <div class="prod-name">恒沁<span class="prod-price">¥177.87/盒</span></div>
+                    <div class="prod-metrics">
+                        <div class="metric-row">
+                            <span class="label">纯销:</span>
+                            <span class="val text-gradient" id="prod-hengqin-val">0</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="label">达成:</span>
+                            <span class="val" id="prod-hengqin-achieve">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第 5 层：层级下钻菜单 2 (纯销视角：产品 -> 省区 -> 办事处 -> 医院) -->
+        <div class="table-panel panel">
+            <div class="panel-header">
+                <h2>纯销视角四大核心产品下钻分析 (产品 → 省区 → 办事处 → 医院)</h2>
+            </div>
+            <div class="table-container">
+                <table class="data-table" id="table-sales">
+                    <thead>
+                        <tr>
+                            <th class="col-name">层级名称</th>
+                            <th class="col-num sortable" data-sort="target">指标金额 <span class="sort-icon"></span></th>
+                            <th class="col-num sortable" data-sort="pureSales">纯销金额 <span class="sort-icon desc active">▼</span></th>
+                            <th class="col-num sortable" data-sort="pureAchieve">纯销达成率 <span class="sort-icon"></span></th>
+                            <th class="col-num sortable" data-sort="ratio">纯销占比 <span class="sort-icon"></span></th>
+                            <th class="col-num sortable" data-sort="mom">环比 <span class="sort-icon"></span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-sales">
+                        <!-- 动态渲染的树形行 -->
+                        <tr><td colspan="6" class="text-center" style="padding: 20px; color: var(--text-secondary);">请先导入 Excel 数据</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+    
+    <!-- 引入逻辑脚本 -->
+    <script src="app.js"></script>
+</body>
+</html>
