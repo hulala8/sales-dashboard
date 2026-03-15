@@ -726,7 +726,7 @@ const convertUnit = (val, prodName) => {
 
 const formatUnitValue = (val, unit = AppState.unit) => {
     const scaledVal = unit === 'amount' ? val / 10000 : val;
-    return formatNumber(scaledVal, unit === 'box' ? 0 : 2);
+    return formatNumber(scaledVal, 0); // 金额和包装数均不保留小数
 };
 
 const formatMoneyOrBox = (val, unit = AppState.unit) => {
@@ -974,14 +974,9 @@ function renderAll() {
     
     renderTreeTable('tbody-sales', sRows, ['产品名称', '所在省区', '所在办事处', '医院名称'], sgm, AppState.sort.table2, (nm, name, rm, nodeContext) => {
         const ratio = safeDiv(nm.pureSales, rm.pureSales);
-        // 核心单品监控：艾心安和安达静环比大幅下降时添加标签
-        const monitoredProducts = ['艾心安', '安达静'];
-        const isCoreProduct = monitoredProducts.some(p => nodeContext['产品名称'] === p || name === p);
-        const needsAttention = isCoreProduct && nm.mom < -0.2;
-        const focusLabel = needsAttention ? `<span class="focus-label">需重点关注</span>` : '';
         return `
             <td class="col-num">${formatUnitValue(nm.target, AppState.unit)}</td>
-            <td class="col-num text-gradient">${formatUnitValue(nm.pureSales, AppState.unit)}${focusLabel}</td>
+            <td class="col-num text-gradient">${formatUnitValue(nm.pureSales, AppState.unit)}</td>
             <td class="col-num">${colorizeAchievement(nm.pureAchieve)}</td>
             <td class="col-num">${formatRatio(ratio)}</td>
             <td class="col-num">${colorizeGrowth(nm.mom, 'mom')}</td>
