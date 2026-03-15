@@ -299,31 +299,110 @@ body {
 .data-table tbody tr:hover {
     background: var(--hover-bg);
 }
-.col-num { text-align: right; }
-.col-name { text-align: left; }
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed; /* 强制固定布局，确保列对齐 */
+}
+.col-num { text-align: right; width: 12%; }
+.col-name { text-align: left; width: 28%; }
+#table-sales .col-num { width: 15%; }
+#table-sales .col-name { width: 25%; }
 
 /* 树形层级缩进和折叠图标 */
-.tree-level-1 td:first-child { padding-left: 10px; font-weight: 600; color: #fff;}
-.tree-level-2 td:first-child { padding-left: 30px; color: #cbd5e1;}
-.tree-level-3 td:first-child { padding-left: 50px; color: #94a3b8;}
-.tree-level-4 td:first-child { padding-left: 70px; color: #64748b;}
+.tree-level-1 td:first-child { padding-left: 12px; font-weight: 700; color: #fff; border-left: 3px solid var(--primary-color);}
+.tree-level-2 td:first-child { padding-left: 32px; color: #e2e8f0;}
+.tree-level-3 td:first-child { padding-left: 52px; color: #94a3b8;}
+.tree-level-4 td:first-child { padding-left: 72px; color: #64748b; font-style: italic;}
 
-.tree-toggle {
+.tree-toggle-container {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.tree-toggle-container:hover {
+    color: var(--primary-color);
+}
+
+.tree-toggle-icon {
     display: inline-block;
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     line-height: 16px;
     text-align: center;
-    border: 1px solid var(--primary-color);
-    border-radius: 3px;
-    color: var(--primary-color);
     margin-right: 8px;
-    cursor: pointer;
-    font-family: monospace;
+    transition: transform 0.2s ease;
+    font-size: 0.8rem;
+    color: var(--primary-color);
     user-select: none;
+}
+
+.expanded .tree-toggle-icon {
+    transform: rotate(90deg);
+}
+
+/* 渐显动画 */
+@keyframes fadeInRow {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.data-table tbody tr:not(.hidden-row) {
+    animation: fadeInRow 0.25s ease-out forwards;
+}
+
+.clickable-row {
+    cursor: pointer;
+}
+.clickable-row:hover td {
+    background: var(--hover-bg) !important;
+}
+
+.tree-placeholder {
+    display: inline-block;
+    width: 26px;
 }
 /* 隐藏行的类 */
 .hidden-row { display: none !important; }
+
+/* ===== 视觉预警样式 ===== */
+/* 达成率低于 60% - 单元格淡红背景 */
+.achieve-danger {
+    background-color: rgba(255, 100, 100, 0.15) !important;
+    color: #f87171 !important;
+    border-radius: 4px;
+    padding: 2px 6px;
+}
+/* 达成率超 100% - 深绿加粗 */
+.achieve-success {
+    color: #4ade80 !important;
+    font-weight: 700;
+}
+/* 环比下降超 20% 的警报图标 */
+.mom-alert-icon {
+    margin-left: 4px;
+    font-size: 0.85rem;
+    vertical-align: middle;
+    animation: pulse 1.5s infinite ease-in-out;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+/* 核心单品 '需重点关注' 标签 */
+.focus-label {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    background: rgba(251, 146, 60, 0.2);
+    color: #fb923c;
+    border: 1px solid rgba(251, 146, 60, 0.4);
+    vertical-align: middle;
+    white-space: nowrap;
+}
 
 /* 第 4 层: 产品卡片 */
 .product-grid {
@@ -464,11 +543,11 @@ body {
         <!-- 第 2 层：全局数据总览 (Global KPIs) -->
         <div class="kpi-container">
             <div class="kpi-card">
-                <div class="kpi-title">指标金额 (元)</div>
+                <div class="kpi-title">指标金额 (万元)</div>
                 <div class="kpi-value text-gradient" id="global-target">0</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-title">进货金额 (元)</div>
+                <div class="kpi-title">进货金额 (万元)</div>
                 <div class="kpi-value text-gradient" id="global-purchase">0</div>
             </div>
             <div class="kpi-card">
@@ -495,8 +574,8 @@ body {
                     <thead>
                         <tr>
                             <th class="col-name">层级名称</th>
-                            <th class="col-num sortable" data-sort="target">指标金额 <span class="sort-icon"></span></th>
-                            <th class="col-num sortable" data-sort="purchase">进货金额 <span class="sort-icon desc active">▼</span></th>
+                            <th class="col-num sortable" data-sort="target"><span id="th-p-target">指标金额</span> <span class="sort-icon"></span></th>
+                            <th class="col-num sortable" data-sort="purchase"><span id="th-p-purchase">进货金额</span> <span class="sort-icon desc active">▼</span></th>
                             <th class="col-num sortable" data-sort="achieve">达成率 <span class="sort-icon"></span></th>
                             <th class="col-num sortable" data-sort="ratio">进货占比 <span class="sort-icon"></span></th>
                             <th class="col-num sortable" data-sort="yoy">同比 <span class="sort-icon"></span></th>
@@ -516,7 +595,7 @@ body {
             <div class="panel-header custom-flex">
                 <h2>核心四大产品纯销数据总览</h2>
                 <div class="toggle-group" id="unit-toggle">
-                    <button class="toggle-btn active" data-val="amount">金额 (元)</button>
+                    <button class="toggle-btn active" data-val="amount">金额 (万元)</button>
                     <button class="toggle-btn" data-val="box">最小包装数</button>
                 </div>
             </div>
@@ -590,8 +669,8 @@ body {
                     <thead>
                         <tr>
                             <th class="col-name">层级名称</th>
-                            <th class="col-num sortable" data-sort="target">指标金额 <span class="sort-icon"></span></th>
-                            <th class="col-num sortable" data-sort="pureSales">纯销金额 <span class="sort-icon desc active">▼</span></th>
+                            <th class="col-num sortable" data-sort="target"><span id="th-s-target">指标金额</span> <span class="sort-icon"></span></th>
+                            <th class="col-num sortable" data-sort="pureSales"><span id="th-s-sales">纯销金额</span> <span class="sort-icon desc active">▼</span></th>
                             <th class="col-num sortable" data-sort="pureAchieve">纯销达成率 <span class="sort-icon"></span></th>
                             <th class="col-num sortable" data-sort="ratio">纯销占比 <span class="sort-icon"></span></th>
                             <th class="col-num sortable" data-sort="mom">环比 <span class="sort-icon"></span></th>
@@ -645,9 +724,13 @@ const convertUnit = (val, prodName) => {
     return val / price;
 };
 
-const formatMoneyOrBox = (val, prodName) => {
-    const converted = convertUnit(val, prodName);
-    return formatNumber(converted, AppState.unit === 'box' ? 0 : 2);
+const formatUnitValue = (val, unit = AppState.unit) => {
+    const scaledVal = unit === 'amount' ? val / 10000 : val;
+    return formatNumber(scaledVal, unit === 'box' ? 0 : 2);
+};
+
+const formatMoneyOrBox = (val, unit = AppState.unit) => {
+    return formatUnitValue(val, unit);
 };
 
 const safeDiv = (num, den) => den === 0 ? 0 : num / den;
@@ -665,162 +748,253 @@ const formatRatio = (rate) => {
 
 const colorizeAchievement = (rate) => {
     const text = `${(rate * 100).toFixed(1)}%`;
-    const cls = rate >= 1 ? 'text-success' : 'text-danger';
-    return `<span class="${cls}">${text}</span>`;
+    if (rate < 0.6) {
+        return `<span class="achieve-danger">${text}</span>`;
+    } else if (rate >= 1.0) {
+        return `<span class="achieve-success">${text}</span>`;
+    }
+    return `<span class="text-warning">${text}</span>`;
 };
 
-const colorizeGrowth = (rate) => {
+const colorizeGrowth = (rate, type = '') => {
     if (rate === 0) return '0%';
     const text = formatPercent(rate);
     const cls = rate > 0 ? 'text-success' : rate < 0 ? 'text-danger' : '';
-    return `<span class="${cls}">${text}</span>`;
+    // 环比下降超过20%时附加预警图标
+    const alertIcon = (type === 'mom' && rate < -0.2)
+        ? `<span class="mom-alert-icon">⚠️</span>`
+        : '';
+    return `<span class="${cls}">${text}${alertIcon}</span>`;
 };
 
 
 // ===== 3. 数据处理引擎 =====
 
-// 获取月份的逻辑索引 (1-12 代表 2026年1-12月)
-const getMonthIdx = (mStr) => {
-    const num = parseInt((mStr+'').replace(/\D/g, '')) || 0;
-    return num;
+// 获取月份解析逻辑 (支持: "2026-01", "2026年1月", "1月", 1 等)
+const parseMonth = (mStr) => {
+    if (!mStr) return { year: 0, month: 0, sortKey: 0 };
+    const s = mStr.toString();
+    const parts = s.match(/\d+/g);
+    if (!parts) return { year: 0, month: 0, sortKey: 0 };
+    
+    let year = 0, month = 0;
+    if (parts.length >= 2) {
+        year = parseInt(parts[0]);
+        month = parseInt(parts[1]);
+        // 处理 2 位数年份
+        if (year < 100) year += 2000;
+    } else {
+        month = parseInt(parts[0]);
+        // 默认 2026 年 (根据项目背景)
+        year = 2026;
+    }
+    return { year, month, sortKey: year * 100 + month };
 };
 
-// 获取特定月份、特定年份、特定字段的聚合值
-function getHistoricalVal(rows, targetMonthIdx, year, field) {
-    const mIdx = ((targetMonthIdx - 1) % 12 + 12) % 12 + 1;
-    const monthRows = rows.filter(r => getMonthIdx(r['月份']) === mIdx);
-    if (monthRows.length === 0) return 0;
+// 获取特定月份、特定字段的聚合值 (带跨年逻辑，支持单位转换)
+function getHistoricalVal(rows, baseYear, baseMonth, offsetMonths, field, unit = AppState.unit) {
+    const isBox = unit === 'box';
+    
+    // 计算目标年月
+    let targetMonth = baseMonth + offsetMonths;
+    let targetYear = baseYear;
+    while (targetMonth <= 0) {
+        targetMonth += 12;
+        targetYear -= 1;
+    }
+    while (targetMonth > 12) {
+        targetMonth -= 12;
+        targetYear += 1;
+    }
 
     const suffix = field === 'purchase' ? '进货值' : '纯销值';
-    const shortYear = (year + '').slice(-2); // '25' or '26'
-    
+    const yearStr = targetYear.toString();
+    const shortYear = yearStr.slice(-2);
+
+    // 筛选出目标月份的行
+    const monthRows = rows.filter(r => {
+        const p = parseMonth(r['月份']);
+        return p.month === targetMonth;
+    });
+
+    if (monthRows.length === 0) return 0;
+
     let sum = 0;
     monthRows.forEach(row => {
         const keys = Object.keys(row);
-        // 优先完全匹配
-        let key = keys.find(k => k === `${year}年${suffix}` || k === `${shortYear}年${suffix}`);
-        if (!key) {
-            // 模糊匹配：年份(2025或25) + 进货/纯销
-            key = keys.find(k => (k.includes(year) || k.includes(shortYear)) && k.includes(suffix));
+        const key = keys.find(k => 
+            (k.includes(yearStr) || k.includes(shortYear)) && k.includes(suffix)
+        );
+        if (key) {
+            const val = (Number(row[key]) || 0);
+            if (isBox) {
+                const pName = row['产品名称'];
+                const price = ProductPrices[pName] || 1;
+                sum += val / price;
+            } else {
+                sum += val;
+            }
         }
-        if (key) sum += (Number(row[key]) || 0);
     });
     return sum;
 }
 
-// 过滤除月份外的其它维度 (以便溯源历史)
+// 筛选除月份外的其它维度
 function getFilteredDataExcludingMonth() {
     return AppState.rawData.filter(row => {
         const { filters } = AppState;
-        if (filters.province.length > 0 && !filters.province.includes(row['所在省区'])) return false;
-        if (filters.category.length > 0 && !filters.category.includes(row['产品大类'])) return false;
-        if (filters.product.length > 0 && !filters.product.includes(row['产品名称'])) return false;
+        if (filters.province && filters.province.length > 0 && !filters.province.includes(row['所在省区'])) return false;
+        if (filters.category && filters.category.length > 0 && !filters.category.includes(row['产品大类'])) return false;
+        if (filters.product && filters.product.length > 0 && !filters.product.includes(row['产品名称'])) return false;
         return true;
     });
 }
 
-// 核心聚合函数 (计算各项指标及滚动环比)
-function aggregateMetrics(allRowsNode, selectedMonths) {
-    let target = 0, purchase26 = 0, sales25 = 0, pureSales26 = 0;
-    const currentRows = (selectedMonths && selectedMonths.length > 0) ? allRowsNode.filter(r => selectedMonths.includes(r['月份'])) : allRowsNode;
+// 核心聚合函数 (返回已根据指定 unit 转换后的值)
+function aggregateMetrics(allRowsNode, selectedMonths, unit = AppState.unit) {
+    let target = 0, purchase26 = 0, pureSales26 = 0, salesHistForYoY = 0;
+    const isBox = unit === 'box';
+    
+    // 当前选中的物理行
+    const currentRows = (selectedMonths && selectedMonths.length > 0) 
+        ? allRowsNode.filter(r => selectedMonths.includes(r['月份'])) 
+        : allRowsNode;
     
     currentRows.forEach(r => {
-        target += Number(r['2026年指标值']) || 0;
-        purchase26 += Number(r['2026年进货值']) || 0;
-        pureSales26 += Number(r['2026年纯销值']) || 0;
+        const pName = r['产品名称'];
+        const price = ProductPrices[pName] || 1;
+        const conv = (v) => isBox ? v / price : v;
+
+        target += conv(Number(r['2026年指标值']) || 0);
+        purchase26 += conv(Number(r['2026年进货值']) || 0);
+        pureSales26 += conv(Number(r['2026年纯销值']) || 0);
         
+        // 计算同比所需的 2025 数据 (也要根据单位转换)
         const keys = Object.keys(r);
         const y25Key = keys.find(k => (k.includes('2025') || k.includes('25')) && k.includes('进货'));
-        sales25 += (y25Key ? Number(r[y25Key]) : 0) || 0;
+        salesHistForYoY += conv(y25Key ? Number(r[y25Key]) : 0) || 0;
     });
 
     const achieve = safeDiv(purchase26, target);
     const pureAchieve = safeDiv(pureSales26, target);
-    const yoy = safeDiv(purchase26 - sales25, sales25);
+    const yoy = safeDiv(purchase26 - salesHistForYoY, salesHistForYoY);
     
     let mom = 0;
     if (selectedMonths && selectedMonths.length > 0) {
-        const sortedIndices = selectedMonths.map(getMonthIdx).sort((a, b) => a - b);
-        const startIdx = sortedIndices[0];
+        const parsedMonths = selectedMonths.map(parseMonth).sort((a, b) => b.sortKey - a.sortKey);
+        const latest = parsedMonths[0]; // 最新月
+        
         const currentAvg = purchase26 / selectedMonths.length;
         
-        let histSum = 0, count = 0;
+        let prevSum = 0, count = 0;
         if (AppState.momType === 'A') {
-            const hIdx = startIdx - 1;
-            histSum = getHistoricalVal(allRowsNode, hIdx, hIdx >= 1 ? '2026' : '2025', 'purchase');
+            prevSum = getHistoricalVal(allRowsNode, latest.year, latest.month, -1, 'purchase', unit);
             count = 1;
         } else {
             for (let i = 1; i <= 3; i++) {
-                const hIdx = startIdx - i;
-                histSum += getHistoricalVal(allRowsNode, hIdx, hIdx >= 1 ? '2026' : '2025', 'purchase');
+                prevSum += getHistoricalVal(allRowsNode, latest.year, latest.month, -i, 'purchase', unit);
             }
             count = 3;
         }
-        const histAvg = histSum / count;
-        mom = safeDiv(currentAvg - histAvg, histAvg);
+        
+        const prevAvg = prevSum / count;
+        mom = safeDiv(currentAvg - prevAvg, prevAvg);
     }
-    return { target, purchase: purchase26, sales25, pureSales: pureSales26, achieve, pureAchieve, yoy, mom };
+
+    return { target, purchase: purchase26, pureSales: pureSales26, achieve, pureAchieve, yoy, mom };
 }
+
 
 
 // ===== 4. 视图渲染逻辑 =====
 
 function renderAll() {
     const allData = getFilteredDataExcludingMonth();
-    const gm = aggregateMetrics(allData, AppState.filters.month);
+    
+    // 上半部分强制使用金额 (amount)
+    const gm = aggregateMetrics(allData, AppState.filters.month, 'amount');
 
-    document.getElementById('global-target').textContent = formatNumber(gm.target);
-    document.getElementById('global-purchase').textContent = formatNumber(gm.purchase);
+    // 下半部分随按钮联动
+    const unitLabel = AppState.unit === 'amount' ? '万元' : '最小包装数';
+    
+    // 更新表头文字 (仅限纯销视角表格)
+    const salesText = `纯销-${unitLabel}`;
+    // 进货视角保持不变
+    if (document.getElementById('th-p-target')) document.getElementById('th-p-target').textContent = '指标-万元';
+    if (document.getElementById('th-p-purchase')) document.getElementById('th-p-purchase').textContent = '进货-万元';
+    // 纯销视角随动
+    if (document.getElementById('th-s-target')) document.getElementById('th-s-target').textContent = `指标-${unitLabel}`;
+    if (document.getElementById('th-s-sales')) document.getElementById('th-s-sales').textContent = salesText;
+
+    // KPI 卡片固定显示金额
+    const updateKPITitle = (id, text) => {
+        const el = document.getElementById(id);
+        if (el && el.parentElement.querySelector('.kpi-title')) {
+            el.parentElement.querySelector('.kpi-title').textContent = text;
+        }
+    };
+    updateKPITitle('global-target', `指标金额 (万元)`);
+    updateKPITitle('global-purchase', `进货金额 (万元)`);
+
+    document.getElementById('global-target').textContent = formatUnitValue(gm.target, 'amount');
+    document.getElementById('global-purchase').textContent = formatUnitValue(gm.purchase, 'amount');
     document.getElementById('global-achieve').innerHTML = colorizeAchievement(gm.achieve);
     document.getElementById('global-yoy').innerHTML = colorizeGrowth(gm.yoy);
     document.getElementById('global-mom').innerHTML = colorizeGrowth(gm.mom);
 
-    ['艾心安', '安达静', '艾速达', '恒沁'].forEach(pName => {
+    const coreP = ['艾心安', '安达静', '艾速达', '恒沁'];
+    coreP.forEach(pName => {
         const pRows = allData.filter(r => r['产品名称'] === pName);
-        const pm = aggregateMetrics(pRows, AppState.filters.month);
+        const pm = aggregateMetrics(pRows, AppState.filters.month, AppState.unit);
         const key = pName === '艾心安' ? 'aixinan' : pName === '安达静' ? 'andajing' : pName === '艾速达' ? 'aisuda' : 'hengqin';
         const valEl = document.getElementById(`prod-${key}-val`);
         const achEl = document.getElementById(`prod-${key}-achieve`);
         if (valEl && achEl) {
-            valEl.textContent = formatMoneyOrBox(pm.pureSales, pName);
+            valEl.textContent = formatUnitValue(pm.pureSales, AppState.unit);
             achEl.innerHTML = pm.pureSales > 0 ? colorizeAchievement(pm.pureAchieve) : '0%';
         }
     });
 
+    // 进货视角下钻 (强制 amount)
     renderTreeTable('tbody-purchase', allData, ['所在省区', '所在办事处', '医院名称'], gm, AppState.sort.table1, (nm, name, rm) => {
         const ratio = safeDiv(nm.purchase, rm.purchase);
         return `
-            <td class="col-num">${formatNumber(nm.target)}</td>
-            <td class="col-num">${formatNumber(nm.purchase)}</td>
+            <td class="col-num">${formatUnitValue(nm.target, 'amount')}</td>
+            <td class="col-num">${formatUnitValue(nm.purchase, 'amount')}</td>
             <td class="col-num">${colorizeAchievement(nm.achieve)}</td>
             <td class="col-num">${formatRatio(ratio)}</td>
             <td class="col-num">${colorizeGrowth(nm.yoy)}</td>
-            <td class="col-num">${colorizeGrowth(nm.mom)}</td>
+            <td class="col-num">${colorizeGrowth(nm.mom, 'mom')}</td>
         `;
-    });
+    }, null, 'amount');
 
-    const coreP = ['艾心安', '安达静', '艾速达', '恒沁'];
+    // 纯销视角下钻 (随 AppState.unit 联动)
     const sRows = allData.filter(r => coreP.includes(r['产品名称']));
-    const sgm = aggregateMetrics(sRows, AppState.filters.month);
-    renderTreeTable('tbody-sales', sRows, ['产品名称', '所在省区', '所在办事处', '医院名称'], sgm, AppState.sort.table2, (nm, name, rm) => {
-        const pN = coreP.includes(name) ? name : '未知'; 
+    const sgm = aggregateMetrics(sRows, AppState.filters.month, AppState.unit);
+    
+    renderTreeTable('tbody-sales', sRows, ['产品名称', '所在省区', '所在办事处', '医院名称'], sgm, AppState.sort.table2, (nm, name, rm, nodeContext) => {
         const ratio = safeDiv(nm.pureSales, rm.pureSales);
+        // 核心单品监控：艾心安和安达静环比大幅下降时添加标签
+        const monitoredProducts = ['艾心安', '安达静'];
+        const isCoreProduct = monitoredProducts.some(p => nodeContext['产品名称'] === p || name === p);
+        const needsAttention = isCoreProduct && nm.mom < -0.2;
+        const focusLabel = needsAttention ? `<span class="focus-label">需重点关注</span>` : '';
         return `
-            <td class="col-num">${formatNumber(nm.target)}</td>
-            <td class="col-num text-gradient">${formatMoneyOrBox(nm.pureSales, pN)}</td>
+            <td class="col-num">${formatUnitValue(nm.target, AppState.unit)}</td>
+            <td class="col-num text-gradient">${formatUnitValue(nm.pureSales, AppState.unit)}${focusLabel}</td>
             <td class="col-num">${colorizeAchievement(nm.pureAchieve)}</td>
             <td class="col-num">${formatRatio(ratio)}</td>
-            <td class="col-num">${colorizeGrowth(nm.mom)}</td>
+            <td class="col-num">${colorizeGrowth(nm.mom, 'mom')}</td>
         `;
     }, (a, b) => {
         if (coreP.includes(a.name) && coreP.includes(b.name)) return coreP.indexOf(a.name) - coreP.indexOf(b.name);
         const f = AppState.sort.table2.field;
         const o = AppState.sort.table2.order === 'desc' ? -1 : 1;
         return (a.metrics[f] - b.metrics[f]) * o;
-    });
+    }, AppState.unit);
 }
 
-function renderTreeTable(tbodyId, dataList, dimensions, rootMetrics, sortState, renderCols, customSort) {
+function renderTreeTable(tbodyId, dataList, dimensions, rootMetrics, sortState, renderCols, customSort, unit = AppState.unit) {
     const tbody = document.getElementById(tbodyId);
     if (!tbody || dataList.length === 0) {
         if (tbody) tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--text-secondary);">暂无数据</td></tr>`;
@@ -840,7 +1014,7 @@ function renderTreeTable(tbodyId, dataList, dimensions, rootMetrics, sortState, 
         for (const [key, rows] of Object.entries(groups)) {
             nodes.push({
                 name: key,
-                metrics: aggregateMetrics(rows, AppState.filters.month),
+                metrics: aggregateMetrics(rows, AppState.filters.month, unit),
                 children: buildTree(rows, dimIndex + 1)
             });
         }
@@ -861,34 +1035,70 @@ function renderTreeTable(tbodyId, dataList, dimensions, rootMetrics, sortState, 
 
     const treeData = buildTree(dataList, 0);
     let html = '', rowIdx = 0;
-    function genHtml(nodes, level, pId) {
+
+    function genHtml(nodes, level, pId, nodeContext = {}) {
         nodes.forEach(n => {
-            const curId = `row-${tbodyId}-${rowIdx++}`;
+            const curId = `${tbodyId}-row-${rowIdx++}`;
             const hasC = n.children && n.children.length > 0;
-            const icon = hasC ? `<span class="tree-toggle" data-id="${curId}" data-target-class="child-of-${curId}">+</span>` : '<span style="display:inline-block;width:26px;"></span>';
-            html += `<tr id="${curId}" class="tree-level-${level} ${level > 1 ? 'hidden-row child-of-' + pId : ''}" data-level="${level}">
-                <td class="col-name">${icon}${n.name}</td>${renderCols(n.metrics, n.name, rootMetrics)}</tr>`;
-            if (hasC) genHtml(n.children, level + 1, curId);
+            const parentClass = pId ? `child-of-${pId}` : '';
+            // 重点：除了第一层，其他全部默认隐藏
+            const hiddenClass = level > 1 ? 'hidden-row' : '';
+            
+            const currentContext = { ...nodeContext };
+            if (level <= dimensions.length) {
+                currentContext[dimensions[level - 1]] = n.name;
+            }
+
+            const icon = hasC 
+                ? `<span class="tree-toggle-icon">▶</span>` 
+                : `<span class="tree-placeholder"></span>`;
+            
+            html += `
+                <tr id="${curId}" 
+                    class="tree-level-${level} ${hiddenClass} ${parentClass} ${hasC ? 'clickable-row' : ''}" 
+                    data-level="${level}" 
+                    ${hasC ? `data-toggle-target="child-of-${curId}"` : ''}>
+                    <td class="col-name">
+                        <div class="tree-toggle-container">
+                            ${icon}
+                            <span>${n.name}</span>
+                        </div>
+                    </td>
+                    ${renderCols(n.metrics, n.name, rootMetrics, currentContext)}
+                </tr>`;
+            
+            if (hasC) genHtml(n.children, level + 1, curId, currentContext);
         });
     }
-    genHtml(treeData, 1, 'root');
+
+    genHtml(treeData, 1, null, {});
     tbody.innerHTML = html;
-    tbody.querySelectorAll('.tree-toggle').forEach(b => {
-        b.onclick = (e) => {
-            const tC = e.target.getAttribute('data-target-class');
-            if (e.target.textContent === '+') {
-                e.target.textContent = '-';
-                tbody.querySelectorAll(`.${tC}`).forEach(r => r.classList.remove('hidden-row'));
-            } else {
-                e.target.textContent = '+';
-                const hideSub = (cls) => {
-                    tbody.querySelectorAll(`.${cls}`).forEach(r => {
-                        r.classList.add('hidden-row');
-                        const btn = r.querySelector('.tree-toggle');
-                        if (btn) { btn.textContent = '+'; hideSub(`child-of-${r.id}`); }
+
+    // 绑定点击事件
+    tbody.querySelectorAll('.clickable-row').forEach(row => {
+        row.onclick = (e) => {
+            e.stopPropagation();
+            const targetClass = row.getAttribute('data-toggle-target');
+            const isExpanded = row.classList.contains('expanded');
+            
+            if (isExpanded) {
+                // 折叠逻辑：递归收回所有后代
+                row.classList.remove('expanded');
+                const collapseDescendants = (cls) => {
+                    const children = tbody.querySelectorAll(`.${cls}`);
+                    children.forEach(child => {
+                        child.classList.add('hidden-row');
+                        child.classList.remove('expanded');
+                        const subTarget = child.getAttribute('data-toggle-target');
+                        if (subTarget) collapseDescendants(subTarget);
                     });
                 };
-                hideSub(tC);
+                collapseDescendants(targetClass);
+            } else {
+                // 展开逻辑：仅展开直接子级
+                row.classList.add('expanded');
+                const children = tbody.querySelectorAll(`.${targetClass}`);
+                children.forEach(child => child.classList.remove('hidden-row'));
             }
         };
     });
@@ -906,43 +1116,91 @@ function initFilters(data) {
         if (r['产品名称']) s.product.add(r['产品名称']);
     });
 
-    const initMulti = (id, set, label) => {
+    const multiState = {}; // 存储各个 dropdown 的状态
+
+    const initMulti = (id, set, label, onUpdate) => {
         const w = document.getElementById(`wrapper-${id}`), t = document.getElementById(`trigger-${id}`), o = document.getElementById(`options-${id}`);
         if (!w || !t || !o) return;
+        
+        multiState[id] = { set, label, o, t, w };
+
+        // 点击展开/收起
         t.onclick = (e) => {
             e.stopPropagation();
             document.querySelectorAll('.custom-select.open').forEach(el => { if (el !== w) el.classList.remove('open'); });
             w.classList.toggle('open');
         };
-        let h = `<label class="option-item" style="border-bottom:1px dashed rgba(255,255,255,0.2);padding-bottom:10px;margin-bottom:5px;">
-            <input type="checkbox" class="chk-all-${id}"><span style="font-weight:700;">全选</span></label>`;
-        let vals = Array.from(set);
-        if (id === 'month') {
-            vals.sort((a, b) => {
-                const m1 = a.match(/\d+/g) || [], m2 = b.match(/\d+/g) || [];
-                if (m1[0] !== m2[0]) return parseInt(m1[0]) - parseInt(m2[0]);
-                return parseInt(m1[1]) - parseInt(m2[1]);
+
+        const renderOptions = (currentSet) => {
+            let h = `<label class="option-item" style="border-bottom:1px dashed rgba(255,255,255,0.2);padding-bottom:10px;margin-bottom:5px;">
+                <input type="checkbox" class="chk-all-${id}"><span style="font-weight:700;">全选</span></label>`;
+            let vals = Array.from(currentSet);
+            if (id === 'month') {
+                vals.sort((a, b) => parseMonth(a).sortKey - parseMonth(b).sortKey);
+            } else vals.sort();
+            
+            vals.forEach(v => {
+                const checked = AppState.filters[id].includes(v);
+                h += `<label class="option-item"><input type="checkbox" value="${v}" class="chk-${id}" ${checked ? 'checked' : ''}> ${v}</label>`;
             });
-        } else vals.sort();
-        vals.forEach(v => h += `<label class="option-item"><input type="checkbox" value="${v}" class="chk-${id}"> ${v}</label>`);
-        o.innerHTML = h;
-        const all = o.querySelector(`.chk-all-${id}`), chks = Array.from(o.querySelectorAll(`.chk-${id}`));
-        const up = () => {
-            const sel = chks.filter(c => c.checked).map(c => c.value);
-            AppState.filters[id] = sel;
-            if (sel.length === 0) { t.textContent = `全部${label} (多选)`; all.checked = false; }
-            else if (sel.length === chks.length) { t.textContent = `全部${label}`; all.checked = true; }
-            else if (sel.length === 1) { t.textContent = sel[0]; all.checked = false; }
-            else { t.textContent = `已选 ${sel.length} 项`; all.checked = false; }
-            renderAll();
+            o.innerHTML = h;
+
+            const all = o.querySelector(`.chk-all-${id}`), chks = Array.from(o.querySelectorAll(`.chk-${id}`));
+            
+            const up = (silent = false) => {
+                const sel = chks.filter(c => c.checked).map(c => c.value);
+                AppState.filters[id] = sel;
+                if (sel.length === 0) { t.textContent = `全部${label} (多选)`; all.checked = false; }
+                else if (sel.length === chks.length) { t.textContent = `全部${label}`; all.checked = true; }
+                else if (sel.length === 1) { t.textContent = sel[0]; all.checked = false; }
+                else { t.textContent = `已选 ${sel.length} 项`; all.checked = false; }
+                
+                if (!silent) {
+                    if (onUpdate) onUpdate(sel);
+                    renderAll();
+                }
+            };
+
+            all.onchange = (e) => { chks.forEach(c => c.checked = e.target.checked); up(); };
+            chks.forEach(c => c.onchange = () => { all.checked = chks.every(cb => cb.checked); up(); });
+            
+            // 初始化文字显示
+            up(true);
         };
-        all.onchange = (e) => { chks.forEach(c => c.checked = e.target.checked); up(); };
-        chks.forEach(c => c.onchange = () => { all.checked = chks.every(cb => cb.checked); up(); });
+
+        multiState[id].refresh = renderOptions;
+        renderOptions(set);
     };
+
+    // 级联逻辑：当大类变化时，更新产品下拉框
+    const handleCategoryUpdate = (selectedCategories) => {
+        let filteredProducts;
+        if (selectedCategories.length === 0) {
+            filteredProducts = s.product;
+        } else {
+            const productsInSelectedCategories = new Set();
+            data.forEach(r => {
+                if (selectedCategories.includes(r['产品大类'])) {
+                    productsInSelectedCategories.add(r['产品名称']);
+                }
+            });
+            filteredProducts = productsInSelectedCategories;
+        }
+        
+        // 清理 AppState.filters.product 中不再可选的项目
+        AppState.filters.product = AppState.filters.product.filter(p => filteredProducts.has(p));
+        
+        // 刷新产品下拉框
+        if (multiState['product'] && multiState['product'].refresh) {
+            multiState['product'].refresh(filteredProducts);
+        }
+    };
+
     initMulti('month', s.month, '月份');
     initMulti('province', s.province, '省区');
-    initMulti('category', s.category, '大类');
+    initMulti('category', s.category, '大类', handleCategoryUpdate);
     initMulti('product', s.product, '产品');
+    
     document.onclick = (e) => { if (!e.target.closest('.custom-select')) document.querySelectorAll('.custom-select.open').forEach(el => el.classList.remove('open')); };
 }
 
