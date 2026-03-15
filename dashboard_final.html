@@ -437,7 +437,7 @@ body {
 }
 .bg-success { background: rgba(16, 185, 129, 0.2); color: #34d399; }
 .bg-danger { background: rgba(239, 68, 68, 0.2); color: #f87171; }
-/* ===== 响应式布局 (移动端) ===== */
+/* ===== 响应式布局 ===== */
 @media (max-width: 900px) {
     .dashboard-wrapper { padding: 12px; gap: 12px; }
     .header h1 { font-size: 1.3rem; }
@@ -453,19 +453,114 @@ body {
     .data-table { font-size: 0.78rem; }
     .data-table td, .data-table th { padding: 8px 5px; }
 }
-@media (max-width: 600px) {
-    .kpi-container { grid-template-columns: repeat(2, 1fr); }
-    .product-grid { grid-template-columns: 1fr 1fr; }
-    .kpi-value { font-size: 1.3rem; }
-    .panel { padding: 14px; }
-    .header h1 { font-size: 1.1rem; }
-    .panel-header h2 { font-size: 0.95rem; }
-    .data-table { font-size: 0.72rem; }
-    .table-container { max-height: 380px; }
+
+/* ===== 手机端深度适配 (≤ 768px) ===== */
+
+/* 手机端筛选设置按钮：默认显示，PC 端隐藏 */
+.mobile-filter-toggle {
+    display: none;
+    width: 100%;
+    padding: 10px 16px;
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px solid rgba(99, 102, 241, 0.4);
+    border-radius: 8px;
+    color: var(--primary-color);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.2s;
 }
-@media (max-width: 400px) {
-    .kpi-container { grid-template-columns: 1fr 1fr; }
+.mobile-filter-toggle:hover {
+    background: rgba(99, 102, 241, 0.25);
+}
+/* 手机端筛选内容区：桌面端透明 (display:contents)，移动端变为 block 支持折叠动画 */
+.filters-body {
+    display: contents; /* 在 PC 端：子元素直接参与父 flex 布局，本层 div 不占位 */
+}
+
+@media (max-width: 768px) {
+    /* 显示手机展收按钮 */
+    .mobile-filter-toggle { display: block; margin-bottom: 10px; }
+    /* 移动端恢复为 block，支持 max-height 折叠动画 */
+    .filters-body {
+        display: block;
+        overflow: hidden;
+        transition: max-height 0.35s ease, opacity 0.3s ease;
+        max-height: 1000px;
+        opacity: 1;
+    }
+    /* 默认折叠筛选内容 */
+    .filters-body.collapsed {
+        max-height: 0 !important;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    /* 表格横向滚动：切换为自动布局，设置最小宽度 */
+    .data-table {
+        table-layout: auto !important;
+        font-size: 13px;
+        white-space: nowrap;
+    }
+    /* 进货表第一列 min-width */
+    #table-purchase .col-name { min-width: 120px; }
+    #table-purchase .col-num  { min-width: 80px; }
+    /* 纯销表第一列 min-width */
+    #table-sales .col-name { min-width: 120px; }
+    #table-sales .col-num  { min-width: 80px; }
+
+    .data-table td, .data-table th {
+        padding: 10px 10px;
+    }
+
+    /* ==== 冻结第一列（层级名称）==== */
+    /* 第一列素 */
+    .data-table th:first-child,
+    .data-table td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        /* 实色背景：必须实色，不能用 rgba 半透明 */
+        background: #1a1d2e;
+        box-shadow: 3px 0 8px rgba(0, 0, 0, 0.5);
+    }
+    /* 表头第一格层级更高 */
+    .data-table th:first-child {
+        z-index: 3;
+        background: #1a1d2e;
+    }
+    /* 各树形层级第一列也设为实色背景 */
+    .tree-level-1 td:first-child { background: #1a1d2e; }
+    .tree-level-2 td:first-child { background: #1a1d2e; padding-left: 22px; }
+    .tree-level-3 td:first-child { background: #1a1d2e; padding-left: 34px; }
+    .tree-level-4 td:first-child { background: #1a1d2e; padding-left: 46px; }
+    /* 悬停时保持背景一致，防止背景锥透 */
+    .clickable-row:hover td:first-child { background: #22263a !important; }
+
+    /* KPI 卡片 2列 */
+    .kpi-container { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .kpi-value { font-size: 1.15rem; }
+    .kpi-title { font-size: 0.7rem; }
+    /* 产品卡片 2列 */
+    .product-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    /* 面板内边距 */
+    .panel { padding: 12px; }
+    .panel-header h2 { font-size: 0.9rem; }
+    /* 表格区高度 */
+    .table-container { max-height: 400px; }
+    /* 标题栏 */
+    .header { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .header h1 { font-size: 1rem; }
+    .toggle-btn { font-size: 0.78rem; padding: 6px 10px; }
+}
+
+/* ===== 超小屏幕 (≤ 480px) ===== */
+@media (max-width: 480px) {
+    .kpi-container { grid-template-columns: repeat(2, 1fr); }
     .product-grid { grid-template-columns: 1fr; }
+    .kpi-value { font-size: 1.1rem; }
+    .panel { padding: 10px; }
 }
     </style>
 </head>
@@ -487,6 +582,12 @@ body {
 
         <!-- 第 1 层：全局维度控制器 (Global Filters) -->
         <div class="filters-container panel">
+            <!-- 手机端折叠按钮 (PC 端通过 CSS display:none 隐藏) -->
+            <button class="mobile-filter-toggle" id="mobile-filter-btn" onclick="toggleMobileFilters()">
+                ⚙️ 筛选条件 <span id="mobile-filter-arrow">▼</span>
+            </button>
+            <!-- 筛选内容区，手机端默认折叠 -->
+            <div class="filters-body collapsed" id="filters-body">
             <div class="filter-group custom-select-wrapper">
                 <label>选择月份</label>
                 <div class="custom-select" id="wrapper-month">
@@ -525,6 +626,7 @@ body {
                     <button class="toggle-btn" data-val="B">单月比前3月均值 (B)</button>
                 </div>
             </div>
+            </div><!-- /filters-body -->
         </div>
 
         <!-- 第 2 层：全局数据总览 (Global KPIs) -->
@@ -675,6 +777,16 @@ body {
     
     <script>
 // ===== 1. 状态与配置管理 =====
+
+// 手机端筛选面板展开/折叠
+function toggleMobileFilters() {
+    const body = document.getElementById('filters-body');
+    const arrow = document.getElementById('mobile-filter-arrow');
+    if (!body) return;
+    const isCollapsed = body.classList.contains('collapsed');
+    body.classList.toggle('collapsed', !isCollapsed);
+    if (arrow) arrow.textContent = isCollapsed ? '▲' : '▼';
+}
 
 const AppState = {
     rawData: [],      // 原始打平数据
